@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
+import 'package:location/location.dart';
 import 'package:place_picker/entities/entities.dart';
 import 'package:place_picker/entities/localization_item.dart';
 import 'package:place_picker/widgets/widgets.dart';
@@ -123,15 +123,22 @@ class PlacePickerState extends State<PlacePicker> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  SelectPlaceAction(getLocationName(), () => Navigator.of(context).pop(this.locationResult), widget.localizationItem!.tapToSelectLocation),
+                  SelectPlaceAction(
+                      getLocationName(),
+                      () => Navigator.of(context).pop(this.locationResult),
+                      widget.localizationItem!.tapToSelectLocation),
                   Divider(height: 8),
                   Padding(
-                    child: Text(widget.localizationItem!.nearBy, style: TextStyle(fontSize: 16)),
+                    child: Text(widget.localizationItem!.nearBy,
+                        style: TextStyle(fontSize: 16)),
                     padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                   ),
                   Expanded(
                     child: ListView(
-                      children: nearbyPlaces.map((it) => NearbyPlaceItem(it, () => moveToLocation(it.latLng!))).toList(),
+                      children: nearbyPlaces
+                          .map((it) => NearbyPlaceItem(
+                              it, () => moveToLocation(it.latLng!)))
+                          .toList(),
                     ),
                   ),
                 ],
@@ -180,7 +187,8 @@ class PlacePickerState extends State<PlacePicker> {
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final size = renderBox.size;
 
-    final RenderBox? appBarBox = this.appBarKey.currentContext!.findRenderObject() as RenderBox?;
+    final RenderBox? appBarBox =
+        this.appBarKey.currentContext!.findRenderObject() as RenderBox?;
 
     this.overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -193,9 +201,14 @@ class PlacePickerState extends State<PlacePicker> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-                SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+                SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(strokeWidth: 3)),
                 SizedBox(width: 24),
-                Expanded(child: Text(widget.localizationItem!.findingPlace, style: TextStyle(fontSize: 16)))
+                Expanded(
+                    child: Text(widget.localizationItem!.findingPlace,
+                        style: TextStyle(fontSize: 16)))
               ],
             ),
           ),
@@ -213,13 +226,15 @@ class PlacePickerState extends State<PlacePicker> {
     try {
       place = place.replaceAll(" ", "+");
 
-      var endpoint = "https://maps.googleapis.com/maps/api/place/autocomplete/json?"
+      var endpoint =
+          "https://maps.googleapis.com/maps/api/place/autocomplete/json?"
           "key=${widget.apiKey}&"
           "language=${widget.localizationItem!.languageCode}&"
           "input={$place}&sessiontoken=${this.sessionToken}";
 
       if (this.locationResult != null) {
-        endpoint += "&location=${this.locationResult!.latLng!.latitude}," + "${this.locationResult!.latLng!.longitude}";
+        endpoint += "&location=${this.locationResult!.latLng!.latitude}," +
+            "${this.locationResult!.latLng!.longitude}";
       }
 
       final response = await http.get(Uri.parse(endpoint));
@@ -273,7 +288,10 @@ class PlacePickerState extends State<PlacePicker> {
     clearOverlay();
 
     try {
-      final url = Uri.parse("https://maps.googleapis.com/maps/api/place/details/json?key=${widget.apiKey}&" + "language=${widget.localizationItem!.languageCode}&" + "placeid=$placeId");
+      final url = Uri.parse(
+          "https://maps.googleapis.com/maps/api/place/details/json?key=${widget.apiKey}&" +
+              "language=${widget.localizationItem!.languageCode}&" +
+              "placeid=$placeId");
 
       final response = await http.get(url);
 
@@ -299,7 +317,8 @@ class PlacePickerState extends State<PlacePicker> {
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     Size size = renderBox.size;
 
-    final RenderBox? appBarBox = this.appBarKey.currentContext!.findRenderObject() as RenderBox?;
+    final RenderBox? appBarBox =
+        this.appBarKey.currentContext!.findRenderObject() as RenderBox?;
 
     clearOverlay();
 
@@ -307,7 +326,11 @@ class PlacePickerState extends State<PlacePicker> {
       builder: (context) => Positioned(
         width: size.width,
         top: appBarBox!.size.height,
-        child: Material(elevation: 1, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: suggestions)),
+        child: Material(
+            elevation: 1,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: suggestions)),
       ),
     );
 
@@ -325,7 +348,8 @@ class PlacePickerState extends State<PlacePicker> {
     }
 
     for (NearbyPlace np in this.nearbyPlaces) {
-      if (np.latLng == this.locationResult!.latLng && np.name != this.locationResult!.locality) {
+      if (np.latLng == this.locationResult!.latLng &&
+          np.name != this.locationResult!.locality) {
         this.locationResult!.name = np.name;
         return "${np.name}, ${this.locationResult!.locality}";
       }
@@ -339,14 +363,16 @@ class PlacePickerState extends State<PlacePicker> {
     // markers.clear();
     setState(() {
       markers.clear();
-      markers.add(Marker(markerId: MarkerId("selected-location"), position: latLng));
+      markers.add(
+          Marker(markerId: MarkerId("selected-location"), position: latLng));
     });
   }
 
   /// Fetches and updates the nearby places to the provided lat,lng
   void getNearbyPlaces(LatLng latLng) async {
     try {
-      final url = Uri.parse("https://maps.googleapis.com/maps/api/place/nearbysearch/json?"
+      final url = Uri.parse(
+          "https://maps.googleapis.com/maps/api/place/nearbysearch/json?"
           "key=${widget.apiKey}&location=${latLng.latitude},${latLng.longitude}"
           "&radius=150&language=${widget.localizationItem!.languageCode}");
 
@@ -368,7 +394,8 @@ class PlacePickerState extends State<PlacePicker> {
         final nearbyPlace = NearbyPlace()
           ..name = item['name']
           ..icon = item['icon']
-          ..latLng = LatLng(item['geometry']['location']['lat'], item['geometry']['location']['lng']);
+          ..latLng = LatLng(item['geometry']['location']['lat'],
+              item['geometry']['location']['lng']);
 
         this.nearbyPlaces.add(nearbyPlace);
       }
@@ -407,9 +434,19 @@ class PlacePickerState extends State<PlacePicker> {
       final result = responseJson['results'][0];
 
       setState(() {
-        String? name, locality, postalCode, country, administrativeAreaLevel1, administrativeAreaLevel2, city, subLocalityLevel1, subLocalityLevel2;
+        String? name,
+            locality,
+            postalCode,
+            country,
+            administrativeAreaLevel1,
+            administrativeAreaLevel2,
+            city,
+            subLocalityLevel1,
+            subLocalityLevel2;
         bool isOnStreet = false;
-        if (result['address_components'] is List<dynamic> && result['address_components'].length != null && result['address_components'].length > 0) {
+        if (result['address_components'] is List<dynamic> &&
+            result['address_components'].length != null &&
+            result['address_components'].length > 0) {
           for (var i = 0; i < result['address_components'].length; i++) {
             var tmp = result['address_components'][i];
             var types = tmp["types"] as List<dynamic>?;
@@ -458,11 +495,17 @@ class PlacePickerState extends State<PlacePicker> {
           ..placeId = result['place_id']
           ..postalCode = postalCode
           ..country = AddressComponent(name: country, shortName: country)
-          ..administrativeAreaLevel1 = AddressComponent(name: administrativeAreaLevel1, shortName: administrativeAreaLevel1)
-          ..administrativeAreaLevel2 = AddressComponent(name: administrativeAreaLevel2, shortName: administrativeAreaLevel2)
+          ..administrativeAreaLevel1 = AddressComponent(
+              name: administrativeAreaLevel1,
+              shortName: administrativeAreaLevel1)
+          ..administrativeAreaLevel2 = AddressComponent(
+              name: administrativeAreaLevel2,
+              shortName: administrativeAreaLevel2)
           ..city = AddressComponent(name: city, shortName: city)
-          ..subLocalityLevel1 = AddressComponent(name: subLocalityLevel1, shortName: subLocalityLevel1)
-          ..subLocalityLevel2 = AddressComponent(name: subLocalityLevel2, shortName: subLocalityLevel2);
+          ..subLocalityLevel1 = AddressComponent(
+              name: subLocalityLevel1, shortName: subLocalityLevel1)
+          ..subLocalityLevel2 = AddressComponent(
+              name: subLocalityLevel2, shortName: subLocalityLevel2);
       });
     } catch (e) {
       print(e);
@@ -474,7 +517,8 @@ class PlacePickerState extends State<PlacePicker> {
   void moveToLocation(LatLng latLng) {
     this.mapController.future.then((controller) {
       controller.animateCamera(
-        CameraUpdate.newCameraPosition(CameraPosition(target: latLng, zoom: 15.0)),
+        CameraUpdate.newCameraPosition(
+            CameraPosition(target: latLng, zoom: 15.0)),
       );
     });
 
