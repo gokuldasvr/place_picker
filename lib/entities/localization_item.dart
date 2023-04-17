@@ -6,6 +6,7 @@ class LocalizationItem {
   String unnamedLocation;
   String tapToSelectLocation;
 
+
   LocalizationItem({
     this.languageCode = 'en_us',
     this.nearBy = 'Nearby Places',
