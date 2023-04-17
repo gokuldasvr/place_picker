@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -138,7 +137,7 @@ class PlacePickerState extends State<PlacePicker> {
           locationResult = null;
           _delayedPop();
           return Future.value(false);
-        } else {
+        }  else  {
           return Future.value(true);
         }
       },
@@ -194,8 +193,7 @@ class PlacePickerState extends State<PlacePicker> {
                     Padding(
                       child: Text(widget.localizationItem!.nearBy,
                           style: TextStyle(fontSize: 16)),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                     ),
                     Expanded(
                       child: ListView(
@@ -299,27 +297,18 @@ class PlacePickerState extends State<PlacePicker> {
           "language=${widget.localizationItem!.languageCode}&"
           "input={$place}&sessiontoken=${this.sessionToken}";
 
-      HttpsCallable callable =
-          FirebaseFunctions.instanceFor(region: 'asia-northeast1')
-              .httpsCallable(
-        'placeApi',
-        options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 5),
-        ),
-      );
-
-      final response = await callable.call({
-        'type': 'place',
-        'params':
-            "language=${widget.localizationItem!.languageCode}&input={$place}&sessiontoken=${this.sessionToken}"
-      });
-
       if (this.locationResult != null) {
         endpoint += "&location=${this.locationResult!.latLng?.latitude}," +
             "${this.locationResult!.latLng?.longitude}";
       }
 
-      final responseJson = jsonDecode(response);
+      final response = await http.get(Uri.parse(endpoint));
+
+      if (response.statusCode != 200) {
+        throw Error();
+      }
+
+      final responseJson = jsonDecode(response.body);
 
       if (responseJson['predictions'] == null) {
         throw Error();
@@ -364,21 +353,18 @@ class PlacePickerState extends State<PlacePicker> {
     clearOverlay();
 
     try {
-      HttpsCallable callable =
-          FirebaseFunctions.instanceFor(region: 'asia-northeast1')
-              .httpsCallable(
-        'placeApi',
-        options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 5),
-        ),
-      );
-      final response = await callable.call({
-        'type': 'place',
-        'params':
-            "language=${widget.localizationItem!.languageCode}&placeid=$placeId"
-      });
+      final url = Uri.parse(
+          "https://maps.googleapis.com/maps/api/place/details/json?key=${widget.apiKey}&" +
+              "language=${widget.localizationItem!.languageCode}&" +
+              "placeid=$placeId");
 
-      final responseJson = jsonDecode(response.data);
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        throw Error();
+      }
+
+      final responseJson = jsonDecode(response.body);
 
       if (responseJson['result'] == null) {
         throw Error();
