@@ -201,7 +201,8 @@ class PlacePickerState extends State<PlacePicker> {
                         children: nearbyPlaces
                             .map((it) => NearbyPlaceItem(it, () {
                                   if (it.latLng != null) {
-                                    moveToLocation(it.latLng!);
+                                    moveToLocation(it.latLng!,
+                                        placeID: it.placeId);
                                   }
                                 }))
                             .toList(),
@@ -282,7 +283,7 @@ class PlacePickerState extends State<PlacePicker> {
       ),
     );
 
-    Overlay.of(context)?.insert(this.overlayEntry!);
+    Overlay.of(context).insert(this.overlayEntry!);
 
     autoCompleteSearch(place);
   }
@@ -350,22 +351,28 @@ class PlacePickerState extends State<PlacePicker> {
   /// To navigate to the selected place from the autocomplete list to the map,
   /// the lat,lng is required. This method fetches the lat,lng of the place and
   /// proceeds to moving the map to that location.
+  ///
+  Future<dynamic> _getPlaceDetails(String placeId) async {
+    final url = Uri.parse(
+        "https://maps.googleapis.com/maps/api/place/details/json?key=${widget.apiKey}&" +
+            "language=${widget.localizationItem!.languageCode}&" +
+            "placeid=$placeId");
+
+    final response = await http.get(url);
+
+    if (response.statusCode != 200) {
+      throw Error();
+    }
+
+    final responseJson = jsonDecode(response.body);
+    return responseJson;
+  }
+
   void decodeAndSelectPlace(String placeId) async {
     clearOverlay();
 
     try {
-      final url = Uri.parse(
-          "https://maps.googleapis.com/maps/api/place/details/json?key=${widget.apiKey}&" +
-              "language=${widget.localizationItem!.languageCode}&" +
-              "placeid=$placeId");
-
-      final response = await http.get(url);
-
-      if (response.statusCode != 200) {
-        throw Error();
-      }
-
-      final responseJson = jsonDecode(response.body);
+      final responseJson = await _getPlaceDetails(placeId);
 
       if (responseJson['result'] == null) {
         throw Error();
@@ -373,7 +380,8 @@ class PlacePickerState extends State<PlacePicker> {
 
       final location = responseJson['result']['geometry']['location'];
       if (mapController.isCompleted) {
-        moveToLocation(LatLng(location['lat'], location['lng']));
+        moveToLocation(LatLng(location['lat'], location['lng']),
+            placeID: placeId);
       }
     } catch (e) {
       print(e);
@@ -398,7 +406,7 @@ class PlacePickerState extends State<PlacePicker> {
       ),
     );
 
-    Overlay.of(context)?.insert(this.overlayEntry!);
+    Overlay.of(context).insert(this.overlayEntry!);
   }
 
   /// Utility function to get clean readable name of a location. First checks
@@ -456,6 +464,7 @@ class PlacePickerState extends State<PlacePicker> {
 
       for (Map<String, dynamic> item in responseJson['results']) {
         final nearbyPlace = NearbyPlace()
+          ..placeId = item['place_id']
           ..name = item['name']
           ..icon = item['icon']
           ..latLng = LatLng(item['geometry']['location']['lat'],
@@ -476,29 +485,48 @@ class PlacePickerState extends State<PlacePicker> {
 
   /// This method gets the human readable name of the location. Mostly appears
   /// to be the road name and the locality.
-  void reverseGeocodeLatLng(LatLng latLng) async {
+  void reverseGeocodeLatLng(
+    LatLng latLng, {
+    String? placeID,
+  }) async {
     try {
-      final url = Uri.parse("https://maps.googleapis.com/maps/api/geocode/json?"
-          "latlng=${latLng.latitude},${latLng.longitude}&"
-          "language=${widget.localizationItem!.languageCode}&"
-          "key=${widget.apiKey}");
+      dynamic result;
+      String name = "";
+      if (placeID == null) {
+        final url =
+            Uri.parse("https://maps.googleapis.com/maps/api/geocode/json?"
+                "latlng=${latLng.latitude},${latLng.longitude}&"
+                "language=${widget.localizationItem!.languageCode}&"
+                "key=${widget.apiKey}");
 
-      final response = await http.get(url);
+        final response = await http.get(url);
 
-      if (response.statusCode != 200) {
+        if (response.statusCode != 200) {
+          throw Error();
+        }
+
+        final resp = jsonDecode(response.body);
+        if (resp['results'] == null) {
+          throw Error();
+        }
+        var result = resp['results'][0];
+        placeID = result['place_id'];
+      }
+      if (placeID != null) {
+        final data = await _getPlaceDetails(placeID);
+        try {
+          if (data['result'] != null) {
+            result = data['result'];
+            name = data['result']['name'];
+          }
+        } catch (_) {
+          name = '';
+        }
+      } else {
         throw Error();
       }
-
-      final responseJson = jsonDecode(response.body);
-
-      if (responseJson['results'] == null) {
-        throw Error();
-      }
-
-      final result = responseJson['results'][0];
 
       setState(() {
-        String name = "";
         String? locality,
             postalCode,
             country,
@@ -507,51 +535,43 @@ class PlacePickerState extends State<PlacePicker> {
             city,
             subLocalityLevel1,
             subLocalityLevel2;
-        bool isOnStreet = false;
         if (result['address_components'] is List<dynamic> &&
             result['address_components'].length != null &&
             result['address_components'].length > 0) {
-          for (var i = 0; i < result['address_components'].length; i++) {
-            var tmp = result['address_components'][i];
-            var types = tmp["types"] as List<dynamic>;
-            var shortName = tmp['short_name'];
-            if (types == null) {
+          for (var component in result['address_components']) {
+            final types = component['types'];
+            if (types.isEmpty) {
               continue;
             }
-            if (i == 0) {
-              // [street_number]
-              name = shortName;
-              isOnStreet = types.contains('street_number');
-              // other index 0 types
-              // [establishment, point_of_interest, subway_station, transit_station]
-              // [premise]
-              // [route]
-            } else if (i == 1 && isOnStreet) {
-              if (types.contains('route')) {
-                name += ", $shortName";
-              }
-            } else {
-              if (types.contains("sublocality_level_1")) {
-                subLocalityLevel1 = shortName;
-              } else if (types.contains("sublocality_level_2")) {
-                subLocalityLevel2 = shortName;
-              } else if (types.contains("locality")) {
-                locality = shortName;
-              } else if (types.contains("administrative_area_level_2")) {
-                administrativeAreaLevel2 = shortName;
-              } else if (types.contains("administrative_area_level_1")) {
+
+            final longName = component['long_name'];
+            final shortName = component['short_name'];
+
+            switch (types[0]) {
+              case 'street_number':
+                if (name.trim().isEmpty) {
+                  name = longName;
+                } else {
+                  locality = longName;
+                }
+
+                break;
+              case 'route':
+                locality = longName;
+                break;
+              case 'locality':
+                city = longName;
+                break;
+              case 'administrative_area_level_1':
                 administrativeAreaLevel1 = shortName;
-              } else if (types.contains("country")) {
-                country = shortName;
-              } else if (types.contains('postal_code')) {
-                postalCode = shortName;
-              }
+                break;
+              case 'postal_code':
+                postalCode = longName;
+                break;
             }
           }
         }
-        locality = locality ?? administrativeAreaLevel1;
-        city = locality;
-        this.locationResult = LocationResult()
+        final tempResult = LocationResult()
           ..name = name
           ..locality = locality
           ..latLng = latLng
@@ -570,6 +590,7 @@ class PlacePickerState extends State<PlacePicker> {
               name: subLocalityLevel1, shortName: subLocalityLevel1)
           ..subLocalityLevel2 = AddressComponent(
               name: subLocalityLevel2, shortName: subLocalityLevel2);
+        this.locationResult = tempResult;
       });
     } catch (e) {
       print(e);
@@ -578,7 +599,7 @@ class PlacePickerState extends State<PlacePicker> {
 
   /// Moves the camera to the provided location and updates other UI features to
   /// match the location.
-  void moveToLocation(LatLng latLng) {
+  void moveToLocation(LatLng latLng, {String? placeID}) {
     this.mapController.future.then((controller) {
       controller.animateCamera(
         CameraUpdate.newCameraPosition(
@@ -588,7 +609,7 @@ class PlacePickerState extends State<PlacePicker> {
 
     setMarker(latLng);
 
-    reverseGeocodeLatLng(latLng);
+    reverseGeocodeLatLng(latLng, placeID: placeID);
 
     getNearbyPlaces(latLng);
   }
@@ -646,7 +667,7 @@ class PlacePickerState extends State<PlacePicker> {
       //moveToLocation(target);
       print('target:$target');
       return target;
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       final locationData = await Geolocator.getLastKnownPosition();
       if (locationData != null) {
         return LatLng(locationData.latitude, locationData.longitude);
