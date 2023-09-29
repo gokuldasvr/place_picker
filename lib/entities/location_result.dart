@@ -32,4 +32,22 @@ class LocationResult {
   String? postalCode;
 
   String? placeId;
+
+  @override
+  String toString() {
+    return {
+      'name': name,
+      'locality': locality,
+      'latLng': latLng,
+      'formattedAddress': formattedAddress,
+      'country': country,
+      'city': city,
+      'administrativeAreaLevel1': administrativeAreaLevel1,
+      'administrativeAreaLevel2': administrativeAreaLevel2,
+      'subLocalityLevel1': subLocalityLevel1,
+      'subLocalityLevel2': subLocalityLevel2,
+      'postalCode': postalCode,
+      'placeId': placeId,
+    }.toString();
+  }
 }

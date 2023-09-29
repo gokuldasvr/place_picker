@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:developer' as dev;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -365,6 +366,9 @@ class PlacePickerState extends State<PlacePicker> {
     }
 
     final responseJson = jsonDecode(response.body);
+    dev.log(jsonEncode(responseJson['result']).toString());
+    dev.log(
+        jsonEncode(responseJson['result']['address_components']).toString());
     return responseJson;
   }
 
@@ -557,13 +561,16 @@ class PlacePickerState extends State<PlacePicker> {
 
                 break;
               case 'route':
-                locality = longName;
+                locality = '$locality $longName';
                 break;
               case 'locality':
                 city = longName;
                 break;
               case 'administrative_area_level_1':
                 administrativeAreaLevel1 = shortName;
+                break;
+              case 'administrative_area_level_2':
+                administrativeAreaLevel2 = shortName;
                 break;
               case 'postal_code':
                 postalCode = longName;
