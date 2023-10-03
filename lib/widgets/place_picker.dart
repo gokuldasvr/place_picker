@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:developer' as dev;
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -30,9 +30,16 @@ class PlacePicker extends StatefulWidget {
   final LatLng? displayLocation;
   LocalizationItem? localizationItem;
   LatLng defaultLocation = LatLng(10.5381264, 73.8827201);
+  final String requestPermissionMessage;
 
-  PlacePicker(this.apiKey,
-      {this.displayLocation, this.localizationItem, LatLng? defaultLocation}) {
+  PlacePicker(
+    this.apiKey, {
+    this.displayLocation,
+    this.localizationItem,
+    LatLng? defaultLocation,
+    this.requestPermissionMessage =
+        'Place picker needs location permission for nearby search results',
+  }) {
     if (this.localizationItem == null) {
       this.localizationItem = new LocalizationItem();
     }
@@ -649,6 +656,13 @@ class PlacePickerState extends State<PlacePicker> {
         return Future.error('Location Services is not enabled');
       }
     }
+
+    final requestPermission = await _showRequestLocationDialog(context);
+
+    if (requestPermission == null || requestPermission == false) {
+      return Future.error('User disallowed to request permission');
+    }
+
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -682,6 +696,51 @@ class PlacePickerState extends State<PlacePicker> {
         return widget.defaultLocation;
       }
     }
+  }
+
+  Widget adaptiveAction(
+      {required BuildContext context,
+      required VoidCallback onPressed,
+      required Widget child}) {
+    final ThemeData theme = Theme.of(context);
+    switch (theme.platform) {
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return TextButton(onPressed: onPressed, child: child);
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return CupertinoDialogAction(onPressed: onPressed, child: child);
+    }
+  }
+
+  Future<bool?> _showRequestLocationDialog(BuildContext ctx1) async {
+    return showAdaptiveDialog<bool?>(
+      context: ctx1,
+      builder: (ctx) {
+        return AlertDialog.adaptive(
+          title: Text(widget.requestPermissionMessage),
+          icon: Icon(
+            Icons.location_on_outlined,
+            size: 20,
+            color: Colors.grey,
+          ),
+          actions: [
+            adaptiveAction(
+              context: context,
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Not now'),
+            ),
+            adaptiveAction(
+              context: context,
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<dynamic> _showLocationDisabledAlertDialog(BuildContext context) {
